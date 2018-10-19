@@ -8,7 +8,7 @@ If you want to contribute to this list, feel free to send a pull request or open
 
 Jupyter Notebooks containing procedures and models are here:
 
-* [multilingual-text-classification-bow.ipynb](multilingual-text-classification-bow.ipynb).
+* [multilingual-text-classification-bow.ipynb](multilingual-text-classification-bow/multilingual-text-classification-bow.ipynb).
 
 ## Results and comments
 
