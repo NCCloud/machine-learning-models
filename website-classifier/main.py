@@ -75,8 +75,8 @@ def main():
                     EMBEDDING_DIM = 32
                     MAX_LENGTH = 10000
 
-                    language_field = torch.load('./' + folder_path + '/' + model_language_field_path, pickle_module=dill)
-                    text_field = torch.load('./' + folder_path + '/' + model_text_field_path, pickle_module=dill)
+                    language_field = torch.load('./' + folder_path + '/' + model_language_field_path, pickle_module=dill, map_location=torch.device('cpu'))
+                    text_field = torch.load('./' + folder_path + '/' + model_text_field_path, pickle_module=dill, map_location=torch.device('cpu'))
                     tt_df = torchtext.data.TabularDataset(path='data/url.csv',
                                                           format='csv',
                                                           skip_header=True,
@@ -85,7 +85,7 @@ def main():
                     tt_iter = torchtext.data.BucketIterator(dataset=tt_df, batch_size=1, shuffle=False, sort=False)
 
                     model = languagenet.LanguageNet(len(text_field.vocab), EMBEDDING_DIM, MAX_LENGTH, len(language_field.vocab))
-                    model.load_state_dict(torch.load('./' + folder_path + '/' + model_path))
+                    model.load_state_dict(torch.load('./' + folder_path + '/' + model_path, map_location=torch.device('cpu')))
 
                     data = next(iter(tt_iter))
                     log_probs = model(data.text.t())
