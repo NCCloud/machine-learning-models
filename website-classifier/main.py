@@ -90,14 +90,17 @@ def main():
                     data = next(iter(tt_iter))
                     log_probs = model(data.text.t())
                     pred = language_field.vocab.itos[log_probs.max(1)[1]]
-                    print(url, ': ', pred)
                     cnt[pred] += 1
+                    with open(folder_path + '/results', 'w') as results:
+                        for l in cnt.most_common():
+                            results.write(l[0])
+                            results.write(':')
+                            results.write(str(l[1]))
+                            results.write('\n')
                 else:
                     print(url, 'ERR:', page.status_code)
             except Exception as ex:
                 print(url, 'EXCEPTION:', type(ex).__name__)
-
-    print(cnt.most_common(50))
 
 
 if __name__ == '__main__':
