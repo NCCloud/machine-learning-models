@@ -101,6 +101,7 @@ def main():
                     print(url, 'ERR:', page.status_code)
             except Exception as ex:
                 print(url, 'EXCEPTION:', type(ex).__name__)
+    input("Press Enter to exit...")
 
 
 if __name__ == '__main__':
