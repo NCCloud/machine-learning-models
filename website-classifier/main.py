@@ -14,10 +14,10 @@ import dill
 import re
 import torchtext
 import pandas as pd
-
+import collections
 
 parser = argparse.ArgumentParser(description='LanguageNet Classifier')
-parser.add_argument('-u', '--url', default='', type=str, help='url to classify')
+parser.add_argument('-u', '--url-file', default='', type=str, help='file containing urls')
 
 
 def visible(element):
@@ -30,9 +30,8 @@ def visible(element):
 
 def main():
     args = parser.parse_args()
-
-    if args.url == '':
-        print('No url specified, exiting...')
+    if args.url_file == '':
+        print('No url file specified, exiting...')
         return
 
     folder_path = 'data'
@@ -50,48 +49,55 @@ def main():
                 data = response.read()
                 file.write(data)
 
-    page = requests.get(args.url, timeout=10)
-    if page.status_code == 200:
-        html_code = page.text
-        soup = BeautifulSoup(html_code, 'html.parser')
-        data = soup.findAll(text=True)
-        result = filter(visible, data)
-        text_data = u" ".join(t.strip() for t in result)
-        text_data = ' '.join(text_data.split())
-        text_data = text_data.replace('\r', '').replace('\n', '')
+    cnt = collections.Counter()
 
-        text_data = re.sub(r'[\W_]+', ' ', text_data.lower(), flags=re.IGNORECASE | re.UNICODE)
-        text_data = re.sub("\d+", "", text_data)
-        text_data = re.sub(' +', ' ', text_data)
+    with open(args.url_file, 'r') as url_list:
+        for url in url_list:
+            try:
+                page = requests.get(url.strip(), timeout=30)
+                if page.status_code == 200:
+                    html_code = page.text
+                    soup = BeautifulSoup(html_code, 'html.parser')
+                    data = soup.findAll(text=True)
+                    result = filter(visible, data)
+                    text_data = u" ".join(t.strip() for t in result)
+                    text_data = ' '.join(text_data.split())
+                    text_data = text_data.replace('\r', '').replace('\n', '')
 
-        df = pd.DataFrame()
-        df = df.append({'text': text_data}, ignore_index=True)
-        df.to_csv(folder_path + '/url.csv', index=False)
+                    text_data = re.sub(r'[\W_]+', ' ', text_data.lower(), flags=re.IGNORECASE | re.UNICODE)
+                    text_data = re.sub("\d+", "", text_data)
+                    text_data = re.sub(' +', ' ', text_data)
 
-    else:
-        print('Error getting page...')
-        return
+                    df = pd.DataFrame()
+                    df = df.append({'text': text_data}, ignore_index=True)
+                    df.to_csv(folder_path + '/url.csv', index=False)
 
-    EMBEDDING_DIM = 32
-    MAX_LENGTH = 10000
+                    EMBEDDING_DIM = 32
+                    MAX_LENGTH = 10000
 
-    language_field = torch.load('./' + folder_path + '/' + model_language_field_path, pickle_module=dill)
-    text_field = torch.load('./' + folder_path + '/' + model_text_field_path, pickle_module=dill)
-    tt_df = torchtext.data.TabularDataset(path='data/url.csv',
-                                          format='csv',
-                                          skip_header=True,
-                                          fields=[('text', text_field)])
+                    language_field = torch.load('./' + folder_path + '/' + model_language_field_path, pickle_module=dill)
+                    text_field = torch.load('./' + folder_path + '/' + model_text_field_path, pickle_module=dill)
+                    tt_df = torchtext.data.TabularDataset(path='data/url.csv',
+                                                          format='csv',
+                                                          skip_header=True,
+                                                          fields=[('text', text_field)])
 
-    tt_iter = torchtext.data.BucketIterator(dataset=tt_df, batch_size=1, shuffle=False, sort=False)
+                    tt_iter = torchtext.data.BucketIterator(dataset=tt_df, batch_size=1, shuffle=False, sort=False)
 
-    model = languagenet.LanguageNet(len(text_field.vocab), EMBEDDING_DIM, MAX_LENGTH, len(language_field.vocab))
-    model.load_state_dict(torch.load('./' + folder_path + '/' + model_path))
+                    model = languagenet.LanguageNet(len(text_field.vocab), EMBEDDING_DIM, MAX_LENGTH, len(language_field.vocab))
+                    model.load_state_dict(torch.load('./' + folder_path + '/' + model_path))
 
-    data = next(iter(tt_iter))
-    log_probs = model(data.text.t())
-    pred = language_field.vocab.itos[log_probs.max(1)[1]]
-    print(pred)
-    return
+                    data = next(iter(tt_iter))
+                    log_probs = model(data.text.t())
+                    pred = language_field.vocab.itos[log_probs.max(1)[1]]
+                    print(url, ': ', pred)
+                    cnt[pred] += 1
+                else:
+                    print(url, 'ERR:', page.status_code)
+            except Exception as ex:
+                print(url, 'EXCEPTION:', type(ex).__name__)
+
+    print(cnt.most_common(50))
 
 
 if __name__ == '__main__':
