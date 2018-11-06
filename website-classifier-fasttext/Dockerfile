@@ -1,6 +1,6 @@
-FROM python:3.6.7-alpine3.8
+FROM python:3.6.7-slim
 
-RUN apk --no-cache add gcc musl-dev
+RUN apt-get update && apt-get -y install gcc g++
 
 WORKDIR /app
 COPY . /app
