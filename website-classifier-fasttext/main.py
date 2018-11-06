@@ -5,7 +5,7 @@ import collections
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Comment
-import fasttext
+import fastText
 
 
 parser = argparse.ArgumentParser(description='FastTextNet Classifier')
@@ -50,7 +50,7 @@ def main():
                     text_data = re.sub("\d+", "", text_data)
                     text_data = re.sub(' +', ' ', text_data)
 
-                    model = fasttext.load_model('lid.176.ftz')
+                    model = fastText.load_model('./lid.176.ftz')
                     pred = model.predict(text_data, 1)[0][0].replace('__label__', '')
                     cnt[pred] += 1
                     with open(folder_path + '/results', 'w') as results:
