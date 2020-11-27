@@ -11,7 +11,7 @@ from trains.backend_api import Session
 
 from nn.subs import SubsDS
 from nn.nets import SubsNN, SubsNN2, FFNN
-from nn.fernet impor decrypt
+from nn.fernet import decrypt, FERNET_KEY
 from tempfile import gettempdir
 
 import torch
@@ -165,12 +165,9 @@ def main():
         task_name=task_name,
         output_uri=model_snapshots_path
     )
-    dd = task.get_model_config_dict()
-    # c = Config()
-    print(dd)
-    # task.execute_remotely(queue_name="default")
+    task.execute_remotely(queue_name="default")
 
-    # Getting the config from agent
+    # Getting the config from agent
     session = Session()
     print(session.config.__dict__)
 
