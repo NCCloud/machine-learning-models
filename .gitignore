@@ -1,3 +1,12 @@
 .idea/
 .ipynb_checkpoints/
 data/
+
+*.pth
+*.csv
+*.png
+*.whl
+allegro/pytorch/
+allegro/pytorch_src/
+*_example.py
+octave-workspace
