@@ -6,6 +6,8 @@ from trains.storage.manager import StorageManager
 from trains.storage.util import get_config_object_matcher
 from trains.backend_config.config import Config
 from trains.backend_config.defs import LOCAL_CONFIG_FILES
+from trains.backend_api import Session
+
 from nn.subs import SubsDS
 from nn.nets import SubsNN, SubsNN2, FFNN
 from tempfile import gettempdir
@@ -155,10 +157,10 @@ def main():
     dd = task.get_model_config_dict()
     # c = Config()
     print(dd)
-    
     task.execute_remotely(queue_name="default")
 
-    cc = Config._read_single_file(LOCAL_CONFIG_FILES[0])
+    session = Session()
+    cc = Config._read_single_file(session._config_file)
     print(cc)
     # ConfigFactory.parse_file(file_path)
 
