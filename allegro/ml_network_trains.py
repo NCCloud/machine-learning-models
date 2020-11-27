@@ -8,33 +8,49 @@ from trains.backend_config.config import Config
 from trains.backend_config.defs import LOCAL_CONFIG_FILES
 from trains.backend_api import Session
 
+
 from nn.subs import SubsDS
 from nn.nets import SubsNN, SubsNN2, FFNN
+from nn.fernet impor decrypt
 from tempfile import gettempdir
 
 import torch
 import torch.nn as nn
 import argparse
+
 import sys
 import os
 from minio import Minio
 from minio.error import ResponseError
 
+# Sealed keys
+KEY_ID = "gAAAAABfwRbhbvqaFGHhV91TfPPUuUgNbpOCJOk5owAUC1jc-Kljb1nLQJxyVwfyuOETRi2Ge6ZCefY6aLfRyjALF4ZcKlZapqbDzxRaiRj4ICVGRzCMDK0="
+KEY_SECRET = "gAAAAABfwRbhvaJ1wG-Jw4dMu9xFTdWH4Wi_wXvjxWUIQ5M6yaB--ca_GY9-o7EO8em2wddDM-weaafcSB4zURrd0ohUAxnASOofXMNrmW2wfNTD__9mfJUzLr7cGyn7XLw7gEBVNzbC"
+
 
 minioClient = Minio(
     "s3.namecheapcloud.net",
-    access_key=os.environ.get("AWS_ACCESS_KEY_ID", ""),
-    secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", ""),
+    access_key=os.environ.get(
+        "AWS_ACCESS_KEY_ID",
+        decrypt(KEY_ID.encode(), FERNET_KEY).decode()
+    ),
+    secret_key=os.environ.get(
+        "AWS_ACCESS_KEY_SECRET",
+        decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
+    ),
     secure=True
 )
 
 
-def get_file(key, dest_folder):
+def get_file(key: str, dest_folder: str) -> bool:
     """Locally download key from s3
     This method aims to fix errors configuring the trains StorageManager
     Args:
         key (str): path to file in bucket
         dest_folder (str): folder path without filename
+
+    Returns:
+        bool: If the file was downloaded
     """
     try:
         minioClient.fget_object(
@@ -48,7 +64,7 @@ def get_file(key, dest_folder):
         return False
 
 
-def ensure_input(input_files, local_dir):
+def ensure_input(input_files: list, local_dir: str) -> None:
     """Ensure inputs
     Manages the download of input files for the ML Subscriptions
     TODO:
@@ -143,12 +159,7 @@ def main():
     ]
     task_name = 'v0.1.1'
     out_name = 'ml-subs'
-
     
-    
-    c = Config()
-    print(c.__dict__)
-
     task = Task.init(
         project_name='ML-Subscriptions',
         task_name=task_name,
@@ -157,12 +168,11 @@ def main():
     dd = task.get_model_config_dict()
     # c = Config()
     print(dd)
-    task.execute_remotely(queue_name="default")
+    # task.execute_remotely(queue_name="default")
 
+    # Getting the config from agent
     session = Session()
-    cc = Config._read_single_file(session._config_file)
-    print(cc)
-    # ConfigFactory.parse_file(file_path)
+    print(session.config.__dict__)
 
     # Training settings
     parser = argparse.ArgumentParser(description='ML Subscriptions')

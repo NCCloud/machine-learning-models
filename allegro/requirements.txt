@@ -1,0 +1,7 @@
+trains==0.16.3
+torch==1.7.0
+numpy==1.19.4
+cryptography==3.2.1
+minio==6.0.0
+matplotlib==3.3.3
+torchvision==0.8.1
