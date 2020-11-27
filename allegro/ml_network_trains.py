@@ -3,6 +3,9 @@
 
 from trains import Task, Logger
 from trains.storage.manager import StorageManager
+from trains.storage.util import get_config_object_matcher
+from trains.backend_config.config import Config
+from trains.backend_config.defs import LOCAL_CONFIG_FILES
 from nn.subs import SubsDS
 from nn.nets import SubsNN, SubsNN2, FFNN
 from tempfile import gettempdir
@@ -15,17 +18,18 @@ import os
 from minio import Minio
 from minio.error import ResponseError
 
+
 minioClient = Minio(
     "s3.namecheapcloud.net",
-    access_key="jhFaWezx3P79SEjPMErp",
-    secret_key="Pb2Vt9NgtBTkwLWS3xNmtZtssk2DZq2uRq4F963p",
+    access_key=os.environ.get("AWS_ACCESS_KEY_ID", ""),
+    secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", ""),
     secure=True
 )
 
 
 def get_file(key, dest_folder):
     """Locally download key from s3
-    This method aims to fix errors configuring the trains Manager
+    This method aims to fix errors configuring the trains StorageManager
     Args:
         key (str): path to file in bucket
         dest_folder (str): folder path without filename
@@ -35,8 +39,6 @@ def get_file(key, dest_folder):
             "trains",
             key,
             f"{dest_folder}/{os.path.basename(key)}"
-            # 'ml/tests/subs_dss_0.1_sorted_norm.csv',
-            # '/tmp/subs_dss_0.1_sorted_norm.csv'
         )
         return True
     except ResponseError as err:
@@ -140,20 +142,25 @@ def main():
     task_name = 'v0.1.1'
     out_name = 'ml-subs'
 
-    # This is the default way to do it using trains configuration
-    # not working
-    # sm = StorageManager()
-    # sm.get_local_copy(remote_url="s3://trains/ml/tests/subs_dss_0.1_sorted_norm.csv")
-
-    # Instead, `ensure_input` does its job
-    ensure_input(input_files, model_snapshots_path)
     
+    
+    c = Config()
+    print(c.__dict__)
+
     task = Task.init(
         project_name='ML-Subscriptions',
         task_name=task_name,
         output_uri=model_snapshots_path
     )
+    dd = task.get_model_config_dict()
+    # c = Config()
+    print(dd)
+    
     task.execute_remotely(queue_name="default")
+
+    cc = Config._read_single_file(LOCAL_CONFIG_FILES[0])
+    print(cc)
+    # ConfigFactory.parse_file(file_path)
 
     # Training settings
     parser = argparse.ArgumentParser(description='ML Subscriptions')
@@ -233,9 +240,19 @@ def main():
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
+    print(f"Using Cuda: {use_cuda}")
+
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
     kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
+
+    # This is the default way to do it using trains configuration
+    # not working
+    # sm = StorageManager()
+    
+    # sm.get_local_copy(remote_url="s3://trains/ml/tests/subs_dss_0.1_sorted_norm.csv")
+    # Instead, `ensure_input` does its job
+    # ensure_input(input_files, model_snapshots_path)
 
     """
     train_loader = torch.utils.data.DataLoader(

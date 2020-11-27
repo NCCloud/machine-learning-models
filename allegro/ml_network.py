@@ -28,15 +28,15 @@ def accuracy(model, ds, pct):
             [type]: [description]
     """
     # assumes model.eval()
-    # percent correct within pct of true income
+    # percent correct within pct of true duration
     n_correct = 0
     n_wrong = 0
 
     for i in range(len(ds)):
-        X = ds[i]['subs']             # 2-d
-        Y = ds[i]['duration']         # 2-d
+        X = ds[i]['subs']
+        Y = ds[i]['duration']
         with T.no_grad():
-            oupt = model(X)         # computed income
+            oupt = model(X)  # computed duration
 
         if np.abs(oupt.item() - Y.item()) < np.abs(pct * Y.item()):
             n_correct += 1
