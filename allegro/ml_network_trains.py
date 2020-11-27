@@ -250,9 +250,10 @@ def main():
 
     # This is the default way to do it using trains configuration
     # not working
-    # sm = StorageManager()
-    
-    # sm.get_local_copy(remote_url="s3://trains/ml/tests/subs_dss_0.1_sorted_norm.csv")
+
+    sm = StorageManager()
+    sm.get_local_copy(remote_url="s3://trains/ml/tests/subs_dss_0.1_sorted_norm.csv")
+
     # Instead, `ensure_input` does its job
     # ensure_input(input_files, model_snapshots_path)
 
