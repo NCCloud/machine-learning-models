@@ -95,7 +95,7 @@ def ensure_input(input_files: list, local_dir: str) -> None:
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     loss_func = nn.MSELoss()
-
+    epoch_loss = 0
     for batch_idx, batch in enumerate(train_loader):
         data = batch['subs']
         target = batch['duration']
@@ -106,14 +106,15 @@ def train(args, model, device, train_loader, optimizer, epoch):
         optimizer.zero_grad()
         output = model(X)
         loss = loss_func(output, Y)
+        epoch_loss += loss
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             Logger.current_logger().report_scalar(
                 "train", "loss", iteration=(epoch * len(train_loader) + batch_idx), value=loss.item())
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\Acc Loss: {:.6f}'.format(
                 epoch, batch_idx * len(X), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
+                100. * batch_idx / len(train_loader), loss.item(), epoch_loss))
 
 
 def test(args, model, device, test_loader, epoch):
