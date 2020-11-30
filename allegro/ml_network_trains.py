@@ -17,11 +17,10 @@ from tempfile import gettempdir
 import torch
 import torch.nn as nn
 import argparse
-import socket
 import sys
 import os
 from minio import Minio
-from minio.error import ResponseError
+from minio.error import (ResponseError, AccessDenied)
 
 # Sealed keys
 KEY_ID = "gAAAAABfwRbhbvqaFGHhV91TfPPUuUgNbpOCJOk5owAUC1jc-Kljb1nLQJxyVwfyuOETRi2Ge6ZCefY6aLfRyjALF4ZcKlZapqbDzxRaiRj4ICVGRzCMDK0="
@@ -31,8 +30,6 @@ KEY_SECRET = "gAAAAABfwRbhvaJ1wG-Jw4dMu9xFTdWH4Wi_wXvjxWUIQ5M6yaB--ca_GY9-o7EO8e
 def get_minio_client():
     k_id = decrypt(KEY_ID.encode(), FERNET_KEY).decode()
     k_secret = decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
-    print(k_id, k_secret)  # debug
-    print(socket.gethostname())
 
     return Minio(
         "s3.namecheapcloud.net",
@@ -62,6 +59,9 @@ def get_file(client: Minio, key: str, dest_folder: str) -> bool:
         return True
     except ResponseError as err:
         print(err)
+        return False
+    except AccessDenied as err:
+        print(f"AccessDenied: {err} -- check s3 credentials")
         return False
 
 
