@@ -250,7 +250,7 @@ def main():
         output_uri=model_snapshots_path
     )
     task.execute_remotely(queue_name="default")
-
+    
     # Getting the config from agent
     session = Session()
     print(session.config.__dict__)
@@ -258,8 +258,9 @@ def main():
     # Prepare training settings parser
     parser = argparse.ArgumentParser(description=project_name)
     prepare_parser(parser)
-
+    
     args = parser.parse_args()
+    task.connect_configuration(args)
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
     print(f"Using Cuda: {use_cuda}")
