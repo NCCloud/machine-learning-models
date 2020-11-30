@@ -27,59 +27,75 @@ KEY_ID = "gAAAAABfwRbhbvqaFGHhV91TfPPUuUgNbpOCJOk5owAUC1jc-Kljb1nLQJxyVwfyuOETRi
 KEY_SECRET = "gAAAAABfwRbhvaJ1wG-Jw4dMu9xFTdWH4Wi_wXvjxWUIQ5M6yaB--ca_GY9-o7EO8em2wddDM-weaafcSB4zURrd0ohUAxnASOofXMNrmW2wfNTD__9mfJUzLr7cGyn7XLw7gEBVNzbC"
 
 
-def get_minio_client():
-    k_id = decrypt(KEY_ID.encode(), FERNET_KEY).decode()
-    k_secret = decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
+class S3Client(object):
 
-    return Minio(
-        "s3.namecheapcloud.net",
-        access_key=os.environ.get("AWS_ACCESS_KEY_ID", k_id),
-        secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", k_secret),
-        secure=True
-    )
-
-
-def get_file(client: Minio, key: str, dest_folder: str) -> bool:
-    """Locally download key from s3
-    This method aims to fix errors configuring the trains StorageManager
-    Args:
-        client (Minio): Minio client
-        key (str): path to file in bucket
-        dest_folder (str): folder path without filename
-
-    Returns:
-        bool: If the file was downloaded
-    """
-    try:
-        client.fget_object(
-            "trains",
-            key,
-            f"{dest_folder}/{os.path.basename(key)}"
+    def __init__(self, key, secret, host="s3.namecheapcloud.net"):
+        self.m = Minio(
+            host,
+            access_key=os.environ.get("AWS_ACCESS_KEY_ID", k_id),
+            secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", k_secret),
+            secure=True
         )
-        return True
-    except ResponseError as err:
-        print(err)
-        return False
-    except AccessDenied as err:
-        print(f"AccessDenied: {err} -- check s3 credentials")
-        return False
+
+    def get_file(self, key: str, dest_folder: str) -> bool:
+        """Locally download key from s3
+        This method aims to fix errors configuring the trains StorageManager
+        Args:
+            key (str): path to file in bucket
+            dest_folder (str): folder path without filename
+
+        Returns:
+            bool: If the file was downloaded
+        """
+        try:
+            self.m.fget_object(
+                "trains",
+                key,
+                f"{dest_folder}/{os.path.basename(key)}"
+            )
+            return True
+        except ResponseError as err:
+            print(err)
+            return False
+        except AccessDenied as err:
+            print(f"AccessDenied: {err} -- check s3 credentials")
+            return False
+
+    def put_file(self, key: str, local_file: str) -> bool:
+        """Locally put key to s3
+        
+        Args:
+            key (str): key name with path
+            local_file (str): absolute path to file
+
+        Returns:
+            bool: If the file was downloaded
+        """
+        try:
+            self.m.fput_object("trains", key, local_file)
+            return True
+        except ResponseError as err:
+            print(err)
+            return False
+        except AccessDenied as err:
+            print(f"AccessDenied: {err} -- check s3 credentials")
+            return False
 
 
-def ensure_input(input_files: list, local_dir: str) -> None:
+def ensure_input(client: S3Client, input_files: list, local_dir: str) -> None:
     """Ensure inputs
     Manages the download of input files for the ML Subscriptions
     TODO:
     Load filenames from input params
 
     Args:
+        client (S3Client): 
         input_files (list): Input filename list
         local_dir (str): Local destination folder
     """
-
-    minioClient = get_minio_client()
     
     for file in input_files:
-        if get_file(minioClient, 'ml/tests/' + file, local_dir):
+        if mio.get_file('ml/tests/' + file, local_dir):
             if os.path.isfile(
                 os.path.join(local_dir, file)
             ):
@@ -107,14 +123,19 @@ def train(args, model, device, train_loader, optimizer, epoch):
         output = model(X)
         loss = loss_func(output, Y)
         epoch_loss += loss
-        loss.backward()
-        optimizer.step()
+        
         if batch_idx % args.log_interval == 0:
             Logger.current_logger().report_scalar(
                 "train", "loss", iteration=(epoch * len(train_loader) + batch_idx), value=loss.item())
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\Acc Loss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(X), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item(), epoch_loss))
+                100. * batch_idx / len(train_loader), loss.item()))
+
+        # Go backward after report loss
+        loss.backward()
+        optimizer.step()
+    
+    print(f"Train Epoch: {epoch}\tLoss: {epoch_loss:.6f}")
 
 
 def test(args, model, device, test_loader, epoch):
@@ -159,7 +180,6 @@ def prepare_parser(parser):
     parser.add_argument(
         '--nn',
         nargs='+',
-        type=int,
         default=(7, 1, 7),
         metavar='',
         help='Network size: [N M T O]. Where: N input size(features), \
@@ -250,6 +270,11 @@ def main():
     args = parser.parse_args()
     print(args)
 
+    # Prepare s3 client
+    id = decrypt(KEY_ID.encode(), FERNET_KEY).decode()
+    secret = decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
+    mio = S3Client(id, secret)
+
     # Prepare task
     task = Task.init(
         project_name=project_name,
@@ -279,7 +304,7 @@ def main():
 
     # Instead, `ensure_input` does its job
     print("Ensure s3 files locally")
-    ensure_input(input_files, model_snapshots_path)
+    ensure_input(mio, input_files, model_snapshots_path)
 
     print("Loading dss")
     train_file = os.path.join(model_snapshots_path, input_files[0])
@@ -300,10 +325,10 @@ def main():
         shuffle=True,
         **kwargs)
 
-    model = FFNN(*args.nn).to(device)
+    model = FFNN(*[int(n) for n in args.nn]).to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
-    out_name = f"{out_name}-{model.print()}"
+    out_name = f"{out_name}-{model.print()}.pth"
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
@@ -311,6 +336,7 @@ def main():
 
     if (args.save_model):
         torch.save(model.state_dict(), os.path.join(gettempdir(), out_name))
+        mio.put_file(f"ml/models/{out_name}", os.path.join(gettempdir(), out_name))
     
 
 if __name__ == '__main__':
