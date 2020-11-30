@@ -17,7 +17,7 @@ from tempfile import gettempdir
 import torch
 import torch.nn as nn
 import argparse
-
+import socket
 import sys
 import os
 from minio import Minio
@@ -32,9 +32,10 @@ def get_minio_client():
     k_id = decrypt(KEY_ID.encode(), FERNET_KEY).decode()
     k_secret = decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
     print(k_id, k_secret)  # debug
-
+    print(socket.gethostname())
+    
     return Minio(
-        "s3.namecheapcloud.net",
+        "minio.minio:9000",
         access_key=os.environ.get("AWS_ACCESS_KEY_ID", k_id),
         secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", k_secret),
         secure=True
@@ -147,36 +148,13 @@ def test(args, model, device, test_loader, epoch):
         100. * correct / len(test_loader.dataset)))
 
 
-def main():
-    """Allegro trains main
+def prepare_parser(parser):
+    """Wrapper to configure training arguments
+    It loads arguments into input parser, which is modified in place
+
+    Args:
+        parser (argparse.ArgumentParser): a parser to add args to
     """
-
-    model_snapshots_path = '/tmp/trains'
-    if not os.path.exists(model_snapshots_path):
-        os.makedirs(model_snapshots_path)
-    
-    project_name = 'ML-Subscriptions'
-    input_files = [
-        'subs_dss_0.1_sorted_norm.csv',
-        'subs_dss_0.1_sorted_norm_test.csv'
-    ]
-    task_name = 'v0.1.1'
-    out_name = 'ml-subs'
-    
-    task = Task.init(
-        project_name=project_name,
-        task_name=task_name,
-        output_uri=model_snapshots_path
-    )
-    task.execute_remotely(queue_name="default")
-
-    # Getting the config from agent
-    session = Session()
-    print(session.config.__dict__)
-
-    # Training settings
-    parser = argparse.ArgumentParser(description=project_name)
-
     parser.add_argument(
         '--nn',
         nargs='+',
@@ -241,13 +219,44 @@ def main():
         metavar='N',
         help='how many batches to wait before logging training status'
     )
-
     parser.add_argument(
         '--save-model',
         action='store_true',
         default=True,
         help='For Saving the current Model'
     )
+
+
+def main():
+    """Allegro trains main
+    """
+
+    model_snapshots_path = '/tmp/trains'
+    if not os.path.exists(model_snapshots_path):
+        os.makedirs(model_snapshots_path)
+    
+    project_name = 'ML-Subscriptions'
+    input_files = [
+        'subs_dss_0.1_sorted_norm.csv',
+        'subs_dss_0.1_sorted_norm_test.csv'
+    ]
+    task_name = 'v0.1.1'
+    out_name = 'ml-subs'
+    
+    task = Task.init(
+        project_name=project_name,
+        task_name=task_name,
+        output_uri=model_snapshots_path
+    )
+    task.execute_remotely(queue_name="default")
+
+    # Getting the config from agent
+    session = Session()
+    print(session.config.__dict__)
+
+    # Prepare training settings parser
+    parser = argparse.ArgumentParser(description=project_name)
+    prepare_parser(parser)
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -264,6 +273,7 @@ def main():
     # sm.get_local_copy(remote_url="s3://trains/ml/tests/subs_dss_0.1_sorted_norm.csv")
 
     # Instead, `ensure_input` does its job
+    print("Ensure s3 files locally")
     ensure_input(input_files, model_snapshots_path)
 
     print("Loading dss")
