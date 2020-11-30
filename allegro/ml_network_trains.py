@@ -244,21 +244,25 @@ def main():
     task_name = 'v0.1.1'
     out_name = 'ml-subs'
     
+    # Prepare training settings parser
+    parser = argparse.ArgumentParser(description=project_name)
+    prepare_parser(parser)
+    args = parser.parse_args()
+    print(args)
+
+    # Prepare task
     task = Task.init(
         project_name=project_name,
         task_name=task_name,
         output_uri=model_snapshots_path
     )
+
+    task.set_parameters_as_dict(vars(args))
     task.execute_remotely(queue_name="default")
-    
+
     # Getting the config from agent
     session = Session()
     print(session.config.__dict__)
-
-    # Prepare training settings parser
-    parser = argparse.ArgumentParser(description=project_name)
-    prepare_parser(parser)
-    args = parser.parse_args()
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
