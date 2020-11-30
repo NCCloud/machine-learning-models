@@ -32,8 +32,8 @@ class S3Client(object):
     def __init__(self, key, secret, host="s3.namecheapcloud.net"):
         self.m = Minio(
             host,
-            access_key=os.environ.get("AWS_ACCESS_KEY_ID", k_id),
-            secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", k_secret),
+            access_key=os.environ.get("AWS_ACCESS_KEY_ID", key),
+            secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", secret),
             secure=True
         )
 
@@ -95,7 +95,7 @@ def ensure_input(client: S3Client, input_files: list, local_dir: str) -> None:
     """
     
     for file in input_files:
-        if mio.get_file('ml/tests/' + file, local_dir):
+        if client.get_file('ml/tests/' + file, local_dir):
             if os.path.isfile(
                 os.path.join(local_dir, file)
             ):
@@ -271,9 +271,9 @@ def main():
     print(args)
 
     # Prepare s3 client
-    id = decrypt(KEY_ID.encode(), FERNET_KEY).decode()
+    key = decrypt(KEY_ID.encode(), FERNET_KEY).decode()
     secret = decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
-    mio = S3Client(id, secret)
+    mio = S3Client(key, secret)
 
     # Prepare task
     task = Task.init(
