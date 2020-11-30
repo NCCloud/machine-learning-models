@@ -260,7 +260,7 @@ def main():
     prepare_parser(parser)
     
     args = parser.parse_args()
-    task.connect_configuration(args)
+    task.connect_configuration(vars(args))
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
     print(f"Using Cuda: {use_cuda}")
