@@ -28,24 +28,24 @@ KEY_ID = "gAAAAABfwRbhbvqaFGHhV91TfPPUuUgNbpOCJOk5owAUC1jc-Kljb1nLQJxyVwfyuOETRi
 KEY_SECRET = "gAAAAABfwRbhvaJ1wG-Jw4dMu9xFTdWH4Wi_wXvjxWUIQ5M6yaB--ca_GY9-o7EO8em2wddDM-weaafcSB4zURrd0ohUAxnASOofXMNrmW2wfNTD__9mfJUzLr7cGyn7XLw7gEBVNzbC"
 
 
-minioClient = Minio(
-    "s3.namecheapcloud.net",
-    access_key=os.environ.get(
-        "AWS_ACCESS_KEY_ID",
-        decrypt(KEY_ID.encode(), FERNET_KEY).decode()
-    ),
-    secret_key=os.environ.get(
-        "AWS_ACCESS_KEY_SECRET",
-        decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
-    ),
-    secure=True
-)
+def get_minio_client():
+    k_id = decrypt(KEY_ID.encode(), FERNET_KEY).decode()
+    k_secret = decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
+    print(k_id, k_secret)  # debug
+
+    return Minio(
+        "s3.namecheapcloud.net",
+        access_key=os.environ.get("AWS_ACCESS_KEY_ID", k_id),
+        secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", k_secret),
+        secure=True
+    )
 
 
-def get_file(key: str, dest_folder: str) -> bool:
+def get_file(client: Minio, key: str, dest_folder: str) -> bool:
     """Locally download key from s3
     This method aims to fix errors configuring the trains StorageManager
     Args:
+        client (Minio): Minio client
         key (str): path to file in bucket
         dest_folder (str): folder path without filename
 
@@ -53,7 +53,7 @@ def get_file(key: str, dest_folder: str) -> bool:
         bool: If the file was downloaded
     """
     try:
-        minioClient.fget_object(
+        client.fget_object(
             "trains",
             key,
             f"{dest_folder}/{os.path.basename(key)}"
@@ -74,9 +74,11 @@ def ensure_input(input_files: list, local_dir: str) -> None:
         input_files (list): Input filename list
         local_dir (str): Local destination folder
     """
+
+    minioClient = get_minio_client()
     
     for file in input_files:
-        if get_file('ml/tests/' + file, local_dir):
+        if get_file(minioClient, 'ml/tests/' + file, local_dir):
             if os.path.isfile(
                 os.path.join(local_dir, file)
             ):
@@ -153,6 +155,7 @@ def main():
     if not os.path.exists(model_snapshots_path):
         os.makedirs(model_snapshots_path)
     
+    project_name = 'ML-Subscriptions'
     input_files = [
         'subs_dss_0.1_sorted_norm.csv',
         'subs_dss_0.1_sorted_norm_test.csv'
@@ -161,7 +164,7 @@ def main():
     out_name = 'ml-subs'
     
     task = Task.init(
-        project_name='ML-Subscriptions',
+        project_name=project_name,
         task_name=task_name,
         output_uri=model_snapshots_path
     )
@@ -172,7 +175,7 @@ def main():
     print(session.config.__dict__)
 
     # Training settings
-    parser = argparse.ArgumentParser(description='ML Subscriptions')
+    parser = argparse.ArgumentParser(description=project_name)
 
     parser.add_argument(
         '--nn',
@@ -256,30 +259,12 @@ def main():
     kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
 
     # This is the default way to do it using trains configuration
-    # not working
-
-    sm = StorageManager()
-    sm.get_local_copy(remote_url="s3://trains/ml/tests/subs_dss_0.1_sorted_norm.csv")
+    # not working till keys are not set in `trains.conf`
+    # sm = StorageManager()
+    # sm.get_local_copy(remote_url="s3://trains/ml/tests/subs_dss_0.1_sorted_norm.csv")
 
     # Instead, `ensure_input` does its job
-    # ensure_input(input_files, model_snapshots_path)
-
-    """
-    train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(os.path.join('..', 'data'), train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
-
-    test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(os.path.join('..', 'data'), train=False, transform=transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])),
-        batch_size=args.test_batch_size, shuffle=True, **kwargs)
-    """
+    ensure_input(input_files, model_snapshots_path)
 
     print("Loading dss")
     train_file = os.path.join(model_snapshots_path, input_files[0])
