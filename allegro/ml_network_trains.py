@@ -33,9 +33,9 @@ def get_minio_client():
     k_secret = decrypt(KEY_SECRET.encode(), FERNET_KEY).decode()
     print(k_id, k_secret)  # debug
     print(socket.gethostname())
-    
+
     return Minio(
-        "minio.minio:9000",
+        "s3.namecheapcloud.net",
         access_key=os.environ.get("AWS_ACCESS_KEY_ID", k_id),
         secret_key=os.environ.get("AWS_ACCESS_KEY_SECRET", k_secret),
         secure=True
